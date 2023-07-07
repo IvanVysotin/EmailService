@@ -87,12 +87,12 @@ namespace EmailService
                         using (SmtpClient smtpClient = new SmtpClient("smtp.mail.ru", 2525))
                         {
                             smtpClient.EnableSsl = true; // Включение SSL-протокола
-                            smtpClient.Credentials = new NetworkCredential("your_email_here", "your_password_here"); // Данные для почты отправителя
+                            smtpClient.Credentials = new NetworkCredential("your_email_here", "your+pas"); // Данные для почты отправителя
 
                             // Адреса От, Кому и Ответить
-                            MailAddress from = new("mr.zombik123@mail.ru");
+                            MailAddress from = new("your_email_here");
                             MailAddress to = new(client.Email, client.FullName);
-                            MailAddress replyTo = new("mr.zombik123@mail.ru");
+                            MailAddress replyTo = new("your_email_here");
 
                             MailMessage mailMessage = new(from, to); // Письмо (От, Кому)
                             mailMessage.ReplyToList.Add(replyTo); // Ответить
