@@ -15,6 +15,9 @@
     <None Update="Assets\Client_base.xlsx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Assets\EYECONT.pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Assets\Text.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

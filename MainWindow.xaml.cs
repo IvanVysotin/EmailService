@@ -74,52 +74,55 @@ namespace EmailService
                 emailSubject = File.ReadLines("Assets\\Text.txt").FirstOrDefault(); // Запись в переменную для темы письма
                 foreach (Client client in clientDataGrid.ItemsSource)
                 {
-                    // Запись в перенную для тела письма
-                    emailBody = string.Join(
-                        Environment.NewLine, 
-                        File.ReadLines("Assets\\Text.txt").Skip(2)).Replace("...", client.FullName);
-
-                    if (emailSubject == null || emailBody == null) throw new IOException("Ошибка с файлом для отправки");
-                    try
+                    if (client.FullName != null && client.Email != null) 
                     {
-                        // Объект SmtpClient для отправки почты
-                        using (SmtpClient smtpClient = new SmtpClient("smtp.mail.ru", 2525))
+                        // Запись в перенную для тела письма
+                        emailBody = string.Join(
+                            Environment.NewLine,
+                            File.ReadLines("Assets\\Text.txt").Skip(2)).Replace("...", client.FullName);
+
+                        if (emailSubject == null || emailBody == null) throw new IOException("Ошибка с файлом для отправки");
+                        try
                         {
-                            smtpClient.EnableSsl = true; // Включение SSL-протокола
-                            smtpClient.Credentials = new NetworkCredential("your_email_here", "your_password_here"); // Данные для почты отправителя
-
-                            // Адреса От, Кому и Ответить
-                            MailAddress from = new("your_email_here");
-                            MailAddress to = new(client.Email, client.FullName);
-                            MailAddress replyTo = new("your_email_here");
-
-                            MailMessage mailMessage = new(from, to); // Письмо (От, Кому)
-                            mailMessage.ReplyToList.Add(replyTo); // Ответить
-
-                            mailMessage.Attachments.Add(mailAttachment);
-
-                            if (emailSubject != null || emailBody != null)
+                            // Объект SmtpClient для отправки почты
+                            using (SmtpClient smtpClient = new SmtpClient("smtp.mail.ru", 2525))
                             {
-                                mailMessage.Subject = emailSubject; // Тема письма
-                                mailMessage.SubjectEncoding = Encoding.UTF8;
-                                
-                                mailMessage.Body = emailBody; // Содержимое письма
-                                mailMessage.BodyEncoding = Encoding.UTF8;
-                                mailMessage.IsBodyHtml = false;
-                            }
-                            else return;
+                                smtpClient.EnableSsl = true; // Включение SSL-протокола
+                                smtpClient.Credentials = new NetworkCredential("your_email_here", "your_password_here"); // Данные для почты отправителя
 
-                            await smtpClient.SendMailAsync(mailMessage);
-                        };
-                        sendCount++;
-                    }
-                    catch (IOException ex)
-                    {
-                        invalidMessage += ex.Message + "\n";
-                    }
-                    catch (SmtpException ex)
-                    {
-                        invalidMessage += ex.Message + "\n";
+                                // Адреса От, Кому и Ответить
+                                MailAddress from = new("your_email_here");
+                                MailAddress to = new(client.Email, client.FullName);
+                                MailAddress replyTo = new("your_email_here");
+
+                                MailMessage mailMessage = new(from, to); // Письмо (От, Кому)
+                                mailMessage.ReplyToList.Add(replyTo); // Ответить
+
+                                mailMessage.Attachments.Add(mailAttachment);
+
+                                if (emailSubject != null || emailBody != null)
+                                {
+                                    mailMessage.Subject = emailSubject; // Тема письма
+                                    mailMessage.SubjectEncoding = Encoding.UTF8;
+
+                                    mailMessage.Body = emailBody; // Содержимое письма
+                                    mailMessage.BodyEncoding = Encoding.UTF8;
+                                    mailMessage.IsBodyHtml = false;
+                                }
+                                else return;
+
+                                await smtpClient.SendMailAsync(mailMessage);
+                            };
+                            sendCount++;
+                        }
+                        catch (IOException ex)
+                        {
+                            invalidMessage += ex.Message + "\n";
+                        }
+                        catch (SmtpException ex)
+                        {
+                            invalidMessage += ex.Message + "\n";
+                        }
                     }
                 }
             });
