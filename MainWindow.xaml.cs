@@ -23,7 +23,7 @@ using System.Xml.Linq;
 namespace EmailService
 {
     /// <summary>
-    /// Interaction logic for MainWindow.xaml
+    /// Логика взаимодействия для MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window
     {
@@ -33,16 +33,18 @@ namespace EmailService
             LoadDataFromExcel();
         }
 
+        /// <summary>
+        /// Метод, которые читает данные с первого листа .xlsx таблицы
+        /// </summary>
         private void LoadDataFromExcel()
         {
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial; //Строка, необходимая для работы EPPlus в некоммерческом режиме
             var clients = new List<Client>();
-            //string filePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Client_base.xlsx");
-            using (var package = new ExcelPackage(new FileInfo("C:\\Users\\mrzom\\source\\repos\\EmailService\\Assets\\Client_base.xlsx")))
+            using (var package = new ExcelPackage(new FileInfo("Assets\\Client_base.xlsx")))
             {
-                var worksheet = package.Workbook.Worksheets["Sheet1"]; // Assuming data is on the first sheet
+                var worksheet = package.Workbook.Worksheets["Sheet1"]; // Данные с первого листа таблицы "Sheet1"
 
-                for (int row = 2; row <= worksheet.Dimension.End.Row; row++) // Start from row 2 to skip header
+                for (int row = 2; row <= worksheet.Dimension.End.Row; row++) // Начало со второй строки, чтобы не захватывать заголовки столбцов
                 {
                     clients.Add(new Client
                     {
@@ -53,66 +55,88 @@ namespace EmailService
                     });
                 }
             }
-
             clientDataGrid.ItemsSource = clients;
         }
 
+        /// <summary>
+        /// Метод для отправки письма
+        /// </summary>
+        /// <returns></returns>
+        private async Task EmailSending() 
+        {
+            Client selectedClientData = clientDataGrid.SelectedItem as Client;
+            int sendCount = 0;
+            string invalidMessage = null;
+            string emailSubject = null;
+            string emailBody = null;
+            
+            await Task.Run(async () =>
+            {
+                emailSubject = File.ReadLines("Assets\\Text.txt").FirstOrDefault(); // Запись в переменную для темы письма
+                foreach (Client client in clientDataGrid.ItemsSource)
+                {
+                    // Запись в перенную для тела письма
+                    emailBody = string.Join(
+                        Environment.NewLine, 
+                        File.ReadLines("Assets\\Text.txt").Skip(2)).Replace("...", client.FullName);
+
+                    if (emailSubject == null || emailBody == null) throw new IOException("Ошибка с файлом для отправки");
+                    try
+                    {
+                        // Объект SmtpClient для отправки почты
+                        using (SmtpClient smtpClient = new SmtpClient("smtp.mail.ru", 2525))
+                        {
+                            smtpClient.EnableSsl = true; // Включение SSL-протокола
+                            smtpClient.Credentials = new NetworkCredential("your_email_here", "your_password_here"); // Данные для почты отправителя
+
+                            // Адреса От, Кому и Ответить
+                            MailAddress from = new("mr.zombik123@mail.ru");
+                            MailAddress to = new(client.Email, client.FullName);
+                            MailAddress replyTo = new("mr.zombik123@mail.ru");
+
+                            MailMessage mailMessage = new(from, to); // Письмо (От, Кому)
+                            mailMessage.ReplyToList.Add(replyTo); // Ответить
+
+
+                            if (emailSubject != null || emailBody != null)
+                            {
+                                mailMessage.Subject = emailSubject; // Тема письма
+                                mailMessage.SubjectEncoding = Encoding.UTF8;
+                                
+                                mailMessage.Body = emailBody; // Содержимое письма
+                                mailMessage.BodyEncoding = Encoding.UTF8;
+                                mailMessage.IsBodyHtml = false;
+                            }
+                            else return;
+
+                            await smtpClient.SendMailAsync(mailMessage);
+                        };
+                        sendCount++;
+                    }
+                    catch (IOException ex)
+                    {
+                        invalidMessage += ex.Message + "\n";
+                    }
+                    catch (SmtpException ex)
+                    {
+                        invalidMessage += ex.Message + "\n";
+                    }
+                }
+            });
+            if (invalidMessage != null) MessageBox.Show(invalidMessage);
+            MessageBox.Show($"Количество отправленных писем – {sendCount}");
+        }
+
+        /// <summary>
+        /// Метод обработки нажатия на кнопку.
+        /// Вызывает метод отправки письма
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        /// <exception cref="ApplicationException"></exception>
         private async void SendButtonClick(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                // Объект SmtpClient для отправки почты
-                SmtpClient smtpClient = new SmtpClient("smtp.mail.ru", 2525);
-                smtpClient.EnableSsl = true;
-
-                smtpClient.Credentials = new NetworkCredential("mr.zombik123@mail.ru", "2wayTqhJQChZ76aKtfng");
-
-                // Адреса От, Кому и Ответить
-                MailAddress from = new("mr.zombik123@mail.ru");
-                MailAddress to = new("mr.zombik123@mail.ru");
-                MailAddress replyTo = new("mr.zombik123@mail.ru");
-
-                MailMessage mailMessage = new(from, to); // От, Кому
-                mailMessage.ReplyToList.Add(replyTo); // Ответить
-
-                // Тема письма и содержимое
-                mailMessage.Subject = "Test Subject";
-                mailMessage.SubjectEncoding = Encoding.UTF8;
-
-                mailMessage.Body = "Test Body";
-                mailMessage.BodyEncoding = Encoding.UTF8;
-
-                mailMessage.IsBodyHtml = false;
-
-                await smtpClient.SendMailAsync(mailMessage);
-            }
-            catch (SmtpException ex)
-            {
-                throw new ApplicationException("SmtpError occured" + ex.Message);
-            }
-            // Переменные, необходимые для отправки письма
-            /*string senderEmail = "ivntz.apptest.main@mail.ru"; // Почта отправителя
-            string recipientEmail = "ivntz.apptest.ivan@mail.ru"; // Почта получателя
-            string subject = "test subject"; // Тема письма
-            string content = "test content"; // Текст письма*/
-            /*string recipientEmail = recipientTextBox.Text; // Почта получателя
-            string subject = subjectTextBox.Text; // Тема письма
-            string content = contentTextBox.Text; // Текст письма*/
-
-
-
-            // Объект MailMessage с информацией о письме
-            //MailMessage mailMessage = new MailMessage(senderEmail, recipientEmail, subject, content);
-            /*try
-            {
-                // Отправка письма
-                smtpClient.Send(mailMessage);
-                Console.WriteLine("Письмо отправлено успешно!");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Ошибка при отправке письма: " + ex.Message);
-            }*/
+            await EmailSending();
         }
     }
 }

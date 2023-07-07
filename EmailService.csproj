@@ -11,4 +11,13 @@
     <PackageReference Include="EPPlus" Version="6.2.6" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Assets\Client_base.xlsx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\Text.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
