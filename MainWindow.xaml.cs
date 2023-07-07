@@ -64,12 +64,11 @@ namespace EmailService
         /// <returns></returns>
         private async Task EmailSending() 
         {
-            Client selectedClientData = clientDataGrid.SelectedItem as Client;
             int sendCount = 0;
             string invalidMessage = null;
             string emailSubject = null;
             string emailBody = null;
-            
+            Attachment mailAttachment = new("Assets\\EYECONT.pdf");
             await Task.Run(async () =>
             {
                 emailSubject = File.ReadLines("Assets\\Text.txt").FirstOrDefault(); // Запись в переменную для темы письма
@@ -87,7 +86,7 @@ namespace EmailService
                         using (SmtpClient smtpClient = new SmtpClient("smtp.mail.ru", 2525))
                         {
                             smtpClient.EnableSsl = true; // Включение SSL-протокола
-                            smtpClient.Credentials = new NetworkCredential("your_email_here", "your+pas"); // Данные для почты отправителя
+                            smtpClient.Credentials = new NetworkCredential("your_email_here", "your_password_here"); // Данные для почты отправителя
 
                             // Адреса От, Кому и Ответить
                             MailAddress from = new("your_email_here");
@@ -97,6 +96,7 @@ namespace EmailService
                             MailMessage mailMessage = new(from, to); // Письмо (От, Кому)
                             mailMessage.ReplyToList.Add(replyTo); // Ответить
 
+                            mailMessage.Attachments.Add(mailAttachment);
 
                             if (emailSubject != null || emailBody != null)
                             {
