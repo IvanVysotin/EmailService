@@ -24,6 +24,7 @@ using System.Windows.Shapes;
 using System.Xml.Linq;
 using static OfficeOpenXml.ExcelErrorValue;
 using Word = Microsoft.Office.Interop.Word;
+using
 
 namespace EmailService
 {
@@ -61,6 +62,9 @@ namespace EmailService
 
                 if (worksheet != null)
                 {
+                    clientDataGrid.ItemsSource = null;
+                    clientDataGrid.Items.Clear();
+                    clients.Clear();
                     for (int row = 2; row <= worksheet.Dimension.End.Row; row++) // Начало со второй строки, чтобы не захватывать заголовки столбцов
                     {
                         clients.Add(new Client
@@ -85,16 +89,37 @@ namespace EmailService
             Word.Application wordApp = new Word.Application();
             try
             {
-
                 foreach (Client client in clientDataGrid.ItemsSource)
                 {
-                    Word.Document doc = wordApp.Documents.Open(tempFilePath);
-                    doc.Content.Find.Execute("...", ReplaceWith: client.FullName.ToString(), Replace: Word.WdReplace.wdReplaceAll);
-                    doc.Content.Find.Execute("дд.мм.гггг", ReplaceWith: DateTime.Now.ToString("dd.MM.yyyy"), Replace: Word.WdReplace.wdReplaceAll);
-                    doc.Content.Find.Execute(" *", ReplaceWith: _totalSend, Replace: Word.WdReplace.wdReplaceAll);
+                    if (client.FullName != null && client.Email != null)
+                    {
+                        Word.Document doc = wordApp.Documents.Open(tempFilePath);
+                        doc.Content.Find.Execute("...", ReplaceWith: client.FullName.ToString(), Replace: Word.WdReplace.wdReplaceAll);
+                        doc.Content.Find.Execute("дд.мм.гггг", ReplaceWith: DateTime.Now.ToString("dd.MM.yyyy"), Replace: Word.WdReplace.wdReplaceAll);
+                        doc.Content.Find.Execute(" *", ReplaceWith: _totalSend, Replace: Word.WdReplace.wdReplaceAll);
 
-                    doc.Save();
-                    doc.Close();
+                        Word.Table table = doc.Tables[2]; // Вторая таблица в документе
+                        Word.Cell cell = table.Cell(1, 2); //Вторая ячейка в первой строке
+                        cell.Range.Text = client.Position + " " + client.Company + " ";
+                        string[] nameParts = client.FullName.Split(' ');
+                        if (nameParts.Length >= 2)
+                        {
+                            // Формирование Фамилии и инициалов
+                            string lastName = nameParts[0];
+                            string initials = "";
+                            for (int i = 1; i < nameParts.Length; i++)
+                            {
+                                initials += nameParts[i][0] + ".";
+                            }
+
+                            // Запись Фамилии и инициалов в ячейку
+                            cell.Range.Text += lastName + " " + initials;
+                        }
+                        else cell.Range.Text += client.FullName;
+
+                        doc.Save();
+                        doc.Close();
+                    }
                 }
             }
             finally
@@ -122,9 +147,9 @@ namespace EmailService
                 emailSubject = File.ReadLines(_txtPath).FirstOrDefault(); // Запись в переменную для темы письма
                 foreach (Client client in clientDataGrid.ItemsSource)
                 {
-                    string tempFilePath = System.IO.Path.GetTempFileName(); // Путь к временному файлу
+                    /*string tempFilePath = System.IO.Path.GetTempFileName(); // Путь к временному файлу
                     File.Copy(_wordPath, tempFilePath, true); // Копирование драфта письма во временный файл
-                    Word.Application wordApp = new Word.Application();
+                    Word.Application wordApp = new Word.Application();*/
                     if (client.FullName != null && client.Email != null) 
                     {
                         
@@ -265,8 +290,7 @@ namespace EmailService
         {
             MessageBox.Show("ВНИМАНИЕ. В вашем письме должны присутствовать определенные символы для их замены\n\n" +
                 "Символ '*' для номера исходящего письма.\n" +
-                "Символ '...' для обращения к адресату.\n" +
-                "Символ '___' для указания должности и компании адресата.");
+                "Символ '...' для обращения к адресату.");
             OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.Filter = "Документ Word|*.doc;*.docx;*.dot;*.dotx";
             if (openFileDialog.ShowDialog() == true)
