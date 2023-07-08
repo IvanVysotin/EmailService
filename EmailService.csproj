@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <PackageReference Include="EPPlus" Version="6.2.6" />
+    <PackageReference Include="LingvoNET" Version="1.1.2" />
   </ItemGroup>
 
   <ItemGroup>

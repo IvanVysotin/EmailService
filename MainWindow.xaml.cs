@@ -24,7 +24,7 @@ using System.Windows.Shapes;
 using System.Xml.Linq;
 using static OfficeOpenXml.ExcelErrorValue;
 using Word = Microsoft.Office.Interop.Word;
-using
+//using LingvoNET;
 
 namespace EmailService
 {
@@ -81,6 +81,7 @@ namespace EmailService
             }
             clientDataGrid.ItemsSource = clients;
         }
+
 
         public string WordEdit()
         {
