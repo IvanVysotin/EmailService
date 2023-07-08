@@ -82,7 +82,10 @@ namespace EmailService
             clientDataGrid.ItemsSource = clients;
         }
 
-
+        /// <summary>
+        /// Метод, который редактирует данные в документе Word согласно данным из excel
+        /// </summary>
+        /// <returns></returns>
         public string WordEdit()
         {
             string tempFilePath = System.IO.Path.GetTempFileName(); // Путь к временному файлу
@@ -95,6 +98,7 @@ namespace EmailService
                     if (client.FullName != null && client.Email != null)
                     {
                         Word.Document doc = wordApp.Documents.Open(tempFilePath);
+                        // Замены символов
                         doc.Content.Find.Execute("...", ReplaceWith: client.FullName.ToString(), Replace: Word.WdReplace.wdReplaceAll);
                         doc.Content.Find.Execute("дд.мм.гггг", ReplaceWith: DateTime.Now.ToString("dd.MM.yyyy"), Replace: Word.WdReplace.wdReplaceAll);
                         doc.Content.Find.Execute(" *", ReplaceWith: _totalSend, Replace: Word.WdReplace.wdReplaceAll);
@@ -148,9 +152,6 @@ namespace EmailService
                 emailSubject = File.ReadLines(_txtPath).FirstOrDefault(); // Запись в переменную для темы письма
                 foreach (Client client in clientDataGrid.ItemsSource)
                 {
-                    /*string tempFilePath = System.IO.Path.GetTempFileName(); // Путь к временному файлу
-                    File.Copy(_wordPath, tempFilePath, true); // Копирование драфта письма во временный файл
-                    Word.Application wordApp = new Word.Application();*/
                     if (client.FullName != null && client.Email != null) 
                     {
                         
@@ -164,24 +165,16 @@ namespace EmailService
                             // Объект SmtpClient для отправки почты
                             using (SmtpClient smtpClient = new SmtpClient("smtp.mail.ru", 2525))
                             {
-                                /*Word.Document doc = wordApp.Documents.Open(tempFilePath);
-                                doc.Content.Find.Execute("...", ReplaceWith: client.FullName.ToString(), Replace: Word.WdReplace.wdReplaceAll);
-                                doc.Content.Find.Execute("дд.мм.гггг", ReplaceWith: DateTime.Now.ToString("dd.MM.yyyy"), Replace: Word.WdReplace.wdReplaceAll);
-                                doc.Content.Find.Execute(" *", ReplaceWith: _totalSend, Replace: Word.WdReplace.wdReplaceAll);
-
-                                doc.Save();
-                                doc.Close();
-                                wordApp.Quit();*/
                                 Attachment mailAttachment2 = new(WordEdit());
                                 mailAttachment2.Name = "Официальное письмо.docx";
 
                                 smtpClient.EnableSsl = true; // Включение SSL-протокола
-                                smtpClient.Credentials = new NetworkCredential("mr.zombik123@mail.ru", "hwix8KXYbewdm2Txvmhw"); // Данные для почты отправителя
+                                smtpClient.Credentials = new NetworkCredential("your_email_here", "your_password_here"); // Данные для почты отправителя
 
                                 // Адреса От, Кому и Ответить
-                                MailAddress from = new("mr.zombik123@mail.ru");
+                                MailAddress from = new("your_email_here");
                                 MailAddress to = new(client.Email, client.FullName);
-                                MailAddress replyTo = new("mr.zombik123@mail.ru");
+                                MailAddress replyTo = new("your_email_here");
 
                                 MailMessage mailMessage = new(from, to); // Письмо (От, Кому)
                                 mailMessage.ReplyToList.Add(replyTo); // Ответить
@@ -228,7 +221,7 @@ namespace EmailService
 
         /// <summary>
         /// Метод обработки нажатия на кнопку.
-        /// Вызывает метод отправки письма
+        /// Вызывает метод отправки письма и редактирования Word
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -238,6 +231,11 @@ namespace EmailService
             await EmailSending();
         }
 
+        /// <summary>
+        /// Метод обработки нажатия кнопки выбора БД
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void SelectDBClick(object sender, RoutedEventArgs e)
         {
             MessageBox.Show("ВНИМАНИЕ. Учтите, что файл таблицы должен иметь следующую струтуру:\n" +
@@ -256,6 +254,11 @@ namespace EmailService
             IsAllSelected();
         }
 
+        /// <summary>
+        /// Метод обработки нажатия кнопки выбора тела письма
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void SelectTxtClick(object sender, RoutedEventArgs e)
         {
             MessageBox.Show("ВНИМАНИЕ. Учтите, что текстовый файл должен иметь следующую струтуру:\n" +
@@ -274,6 +277,11 @@ namespace EmailService
             IsAllSelected();
         }
 
+        /// <summary>
+        /// Метод обработки нажатия кнопки выбора презентации
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void SelectPresentaionClick(object sender, RoutedEventArgs e)
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
@@ -287,6 +295,11 @@ namespace EmailService
             IsAllSelected();
         }
 
+        /// <summary>
+        /// Метод обработки нажатия кнопки выбора официального файла письма
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void SelectLetterClick(object sender, RoutedEventArgs e)
         {
             MessageBox.Show("ВНИМАНИЕ. В вашем письме должны присутствовать определенные символы для их замены\n\n" +
@@ -303,6 +316,9 @@ namespace EmailService
             IsAllSelected();
         }
 
+        /// <summary>
+        /// Метод для отображения кнопки отправить, если все файлы были выбраны
+        /// </summary>
         private void IsAllSelected() 
         {
             if (_dbChosen && _txtChosen && _presentationChosen && _wordChosen) SendButton.IsEnabled = true;
