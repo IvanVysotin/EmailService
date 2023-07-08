@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Mail;
 using System.Reflection.Metadata;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -22,6 +23,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Xml.Linq;
 using static OfficeOpenXml.ExcelErrorValue;
+using Word = Microsoft.Office.Interop.Word;
 
 namespace EmailService
 {
@@ -33,30 +35,16 @@ namespace EmailService
         private bool _dbChosen = false;
         private bool _txtChosen = false;
         private bool _presentationChosen = false;
+        private bool _wordChosen = false;
         private string _xlsxPath;
         private string _txtPath;
         private string _presentationPath;
+        private string _wordPath;
         private int _totalSend = int.Parse(ConfigurationManager.AppSettings["totalSend"]);
 
         public MainWindow()
         {
-            var appSettings = ConfigurationManager.AppSettings;
             InitializeComponent();
-            foreach (var key in appSettings.AllKeys)
-            {
-                MessageBox.Show($"Key: {key} Value: {appSettings[key]} and {_totalSend}");
-            }
-            Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-            //_totalSend = _totalSend + 1;
-            ++_totalSend;
-            config.AppSettings.Settings["totalSend"].Value = _totalSend.ToString();
-            config.Save(ConfigurationSaveMode.Modified);
-            ConfigurationManager.RefreshSection("appSettings");
-
-            foreach (var key in appSettings.AllKeys)
-            {
-                MessageBox.Show($"Key: {key} Value: {appSettings[key]} and {_totalSend}");
-            }
         }
 
         /// <summary>
@@ -65,6 +53,7 @@ namespace EmailService
         private void LoadDataFromExcel()
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial; //Строка, необходимая для работы EPPlus в некоммерческом режиме
+
             var clients = new List<Client>();
             using (var package = new ExcelPackage(new FileInfo(_xlsxPath)))
             {
@@ -89,6 +78,32 @@ namespace EmailService
             clientDataGrid.ItemsSource = clients;
         }
 
+        public string WordEdit()
+        {
+            string tempFilePath = System.IO.Path.GetTempFileName(); // Путь к временному файлу
+            File.Copy(_wordPath, tempFilePath, true); // Копирование драфта письма во временный файл
+            Word.Application wordApp = new Word.Application();
+            try
+            {
+
+                foreach (Client client in clientDataGrid.ItemsSource)
+                {
+                    Word.Document doc = wordApp.Documents.Open(tempFilePath);
+                    doc.Content.Find.Execute("...", ReplaceWith: client.FullName.ToString(), Replace: Word.WdReplace.wdReplaceAll);
+                    doc.Content.Find.Execute("дд.мм.гггг", ReplaceWith: DateTime.Now.ToString("dd.MM.yyyy"), Replace: Word.WdReplace.wdReplaceAll);
+                    doc.Content.Find.Execute(" *", ReplaceWith: _totalSend, Replace: Word.WdReplace.wdReplaceAll);
+
+                    doc.Save();
+                    doc.Close();
+                }
+            }
+            finally
+            {
+                wordApp.Quit();
+            }
+            return tempFilePath;
+        }
+
         /// <summary>
         /// Метод для отправки письма
         /// </summary>
@@ -99,17 +114,22 @@ namespace EmailService
             string invalidMessage = null;
             string emailSubject = null;
             string emailBody = null;
-            Attachment mailAttachment = new(_presentationPath);
+            Attachment mailAttachment1 = new(_presentationPath);
+            var appSettings = ConfigurationManager.AppSettings;
+
             await Task.Run(async () =>
             {
                 emailSubject = File.ReadLines(_txtPath).FirstOrDefault(); // Запись в переменную для темы письма
                 foreach (Client client in clientDataGrid.ItemsSource)
                 {
+                    string tempFilePath = System.IO.Path.GetTempFileName(); // Путь к временному файлу
+                    File.Copy(_wordPath, tempFilePath, true); // Копирование драфта письма во временный файл
+                    Word.Application wordApp = new Word.Application();
                     if (client.FullName != null && client.Email != null) 
                     {
-                        // Запись в перенную для тела письма
-                        emailBody = string.Join(
-                            Environment.NewLine,
+                        
+                        // Запись в переменные для тела письма
+                        emailBody = string.Join(Environment.NewLine, 
                             File.ReadLines(_txtPath).Skip(2)).Replace("...", client.FullName);
 
                         if (emailSubject == null || emailBody == null) throw new IOException("Ошибка с файлом содержимого письма");
@@ -118,18 +138,30 @@ namespace EmailService
                             // Объект SmtpClient для отправки почты
                             using (SmtpClient smtpClient = new SmtpClient("smtp.mail.ru", 2525))
                             {
+                                /*Word.Document doc = wordApp.Documents.Open(tempFilePath);
+                                doc.Content.Find.Execute("...", ReplaceWith: client.FullName.ToString(), Replace: Word.WdReplace.wdReplaceAll);
+                                doc.Content.Find.Execute("дд.мм.гггг", ReplaceWith: DateTime.Now.ToString("dd.MM.yyyy"), Replace: Word.WdReplace.wdReplaceAll);
+                                doc.Content.Find.Execute(" *", ReplaceWith: _totalSend, Replace: Word.WdReplace.wdReplaceAll);
+
+                                doc.Save();
+                                doc.Close();
+                                wordApp.Quit();*/
+                                Attachment mailAttachment2 = new(WordEdit());
+                                mailAttachment2.Name = "Официальное письмо.docx";
+
                                 smtpClient.EnableSsl = true; // Включение SSL-протокола
-                                smtpClient.Credentials = new NetworkCredential("your_email_here", "your_password_here"); // Данные для почты отправителя
+                                smtpClient.Credentials = new NetworkCredential("mr.zombik123@mail.ru", "hwix8KXYbewdm2Txvmhw"); // Данные для почты отправителя
 
                                 // Адреса От, Кому и Ответить
-                                MailAddress from = new("your_email_here");
+                                MailAddress from = new("mr.zombik123@mail.ru");
                                 MailAddress to = new(client.Email, client.FullName);
-                                MailAddress replyTo = new("your_email_here");
+                                MailAddress replyTo = new("mr.zombik123@mail.ru");
 
                                 MailMessage mailMessage = new(from, to); // Письмо (От, Кому)
                                 mailMessage.ReplyToList.Add(replyTo); // Ответить
 
-                                mailMessage.Attachments.Add(mailAttachment);
+                                mailMessage.Attachments.Add(mailAttachment1);
+                                mailMessage.Attachments.Add(mailAttachment2);
 
                                 if (emailSubject != null || emailBody != null)
                                 {
@@ -141,9 +173,9 @@ namespace EmailService
                                     mailMessage.IsBodyHtml = false;
                                 }
                                 else return;
-
                                 await smtpClient.SendMailAsync(mailMessage);
                             };
+                            _totalSend++;
                             sendCount++;
                         }
                         catch (IOException ex)
@@ -156,7 +188,14 @@ namespace EmailService
                         }
                     }
                 }
+                
+                mailAttachment1.Dispose();
             });
+            Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+            config.AppSettings.Settings["totalSend"].Value = _totalSend.ToString();
+            config.Save(ConfigurationSaveMode.Modified);
+            ConfigurationManager.RefreshSection("appSettings");
+
             if (invalidMessage != null) MessageBox.Show(invalidMessage);
             MessageBox.Show($"Было отправленно писем – {sendCount}\n");
         }
@@ -177,7 +216,7 @@ namespace EmailService
         {
             MessageBox.Show("ВНИМАНИЕ. Учтите, что файл таблицы должен иметь следующую струтуру:\n" +
                 "Первая строка - заголовок столбцов;\n" +
-                "Содержание столбцов:\n" +
+                "Содержание столбцов:\n\n" +
                 "Наименование организации | ФИО | Должность | e-mail | Телефон\n");
             OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.Filter = "Таблица Excel|*.xlsx";
@@ -196,8 +235,8 @@ namespace EmailService
             MessageBox.Show("ВНИМАНИЕ. Учтите, что текстовый файл должен иметь следующую струтуру:\n" +
                 "Первая строка - заголовок письма;\n" +
                 "Вторая строка - пропуск;\n" +
-                "Третья строка и последующие - содержимое письма.\n" +
-                "В ином случае исходный вид письма будет нарушен");
+                "Третья строка и последующие - содержимое письма.\n\n" +
+                "В ином случае целостность письма будет нарушена");
             OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.Filter = "Текстовый файл|*.txt";
             if (openFileDialog.ShowDialog() == true)
@@ -222,9 +261,26 @@ namespace EmailService
             IsAllSelected();
         }
 
+        private void SelectLetterClick(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("ВНИМАНИЕ. В вашем письме должны присутствовать определенные символы для их замены\n\n" +
+                "Символ '*' для номера исходящего письма.\n" +
+                "Символ '...' для обращения к адресату.\n" +
+                "Символ '___' для указания должности и компании адресата.");
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.Filter = "Документ Word|*.doc;*.docx;*.dot;*.dotx";
+            if (openFileDialog.ShowDialog() == true)
+            {
+                _wordPath = openFileDialog.FileName;
+                _wordChosen = true;
+            }
+
+            IsAllSelected();
+        }
+
         private void IsAllSelected() 
         {
-            if (_dbChosen && _txtChosen && _presentationChosen) SendButton.IsEnabled = true;
+            if (_dbChosen && _txtChosen && _presentationChosen && _wordChosen) SendButton.IsEnabled = true;
             else SendButton.IsEnabled = false;
         }
     }
