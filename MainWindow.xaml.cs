@@ -24,7 +24,9 @@ using System.Windows.Shapes;
 using System.Xml.Linq;
 using static OfficeOpenXml.ExcelErrorValue;
 using Word = Microsoft.Office.Interop.Word;
-//using LingvoNET;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using System.Security;
 
 namespace EmailService
 {
@@ -42,6 +44,8 @@ namespace EmailService
         private string _presentationPath;
         private string _wordPath;
         private int _totalSend = int.Parse(ConfigurationManager.AppSettings["totalSend"]);
+        private string _smtpServer = null;
+        private int _smtpPort = 465;
 
         public MainWindow()
         {
@@ -80,6 +84,65 @@ namespace EmailService
                 else MessageBox.Show("Вы выбрали пустую таблицу Excel");
             }
             clientDataGrid.ItemsSource = clients;
+        }
+
+        /// <summary>
+        /// Проверка данных для авторизации
+        /// </summary>
+        /// <returns></returns>
+        private bool CheckCredentials()
+        {
+            //string[] emailAddress = _txtEmailAddress.Text.Split('@');
+            if (_txtEmailAddress.Text.Length <= 7 || !_txtEmailAddress.Text.Contains('@') || _txtEmailPassword.SecurePassword.ToString() == null)
+            {
+                return false;
+            }
+            else 
+            {
+                switch (_txtEmailAddress.Text.Split('@')[1])
+                {
+                    case "mail.ru":
+                        _smtpServer = "smtp.mail.ru";
+                        _smtpPort = 2525;
+                        break;
+                    case "outlook.com":
+                        _smtpServer = "smtp.office365.com";
+                        _smtpPort = 587;
+                        break;
+                    case "gmail.com":
+                        _smtpServer = "smtp.gmail.com";
+                        _smtpPort = 465;
+                        break;
+                    case "yandex.ru":
+                        _smtpServer = "smtp.yandex.ru";
+                        _smtpPort = 465;
+                        break;
+                    case "yahoo.com":
+                        _smtpServer = "smtp.mail.yahoo.com";
+                        _smtpPort = 587;
+                        break;
+                    case "aol.com":
+                        _smtpServer = "smtp.aol.com";
+                        _smtpPort = 587;
+                        break;
+                }
+            }
+
+            if (_smtpServer != null)
+            {
+                using (var client = new MailKit.Net.Smtp.SmtpClient())
+                {
+                    client.Connect(_smtpServer, _smtpPort, SecureSocketOptions.StartTls);
+                    client.Authenticate(_txtEmailAddress.Text, new System.Net.NetworkCredential(string.Empty, _txtEmailPassword.SecurePassword).Password);
+
+                    // Если аутентификация прошла успешно, значит логин и пароль корректны
+                    bool credentialsValid = client.IsAuthenticated;
+
+                    client.Disconnect(true);
+                    return credentialsValid;
+                }
+            }
+            else return false;
         }
 
         /// <summary>
@@ -138,7 +201,7 @@ namespace EmailService
         /// Метод для отправки письма
         /// </summary>
         /// <returns></returns>
-        private async Task EmailSending() 
+        private async Task EmailSendingAsync() 
         {
             int sendCount = 0;
             string invalidMessage = null;
@@ -147,69 +210,65 @@ namespace EmailService
             Attachment mailAttachment1 = new(_presentationPath);
             var appSettings = ConfigurationManager.AppSettings;
 
-            await Task.Run(async () =>
+            emailSubject = File.ReadLines(_txtPath).FirstOrDefault(); // Запись в переменную для темы письма
+            foreach (Client client in clientDataGrid.ItemsSource)
             {
-                emailSubject = File.ReadLines(_txtPath).FirstOrDefault(); // Запись в переменную для темы письма
-                foreach (Client client in clientDataGrid.ItemsSource)
+                if (client.FullName != null && client.Email != null)
                 {
-                    if (client.FullName != null && client.Email != null) 
+                    // Запись в переменную для тела письма
+                    emailBody = string.Join(Environment.NewLine,
+                        File.ReadLines(_txtPath).Skip(2)).Replace("...", client.FullName);
+
+                    if (emailSubject == null || emailBody == null) throw new IOException("Ошибка с файлом содержимого письма");
+                    try
                     {
-                        
-                        // Запись в переменные для тела письма
-                        emailBody = string.Join(Environment.NewLine, 
-                            File.ReadLines(_txtPath).Skip(2)).Replace("...", client.FullName);
-
-                        if (emailSubject == null || emailBody == null) throw new IOException("Ошибка с файлом содержимого письма");
-                        try
+                        // Объект SmtpClient для отправки почты
+                        using (System.Net.Mail.SmtpClient smtpClient = new System.Net.Mail.SmtpClient(_smtpServer, _smtpPort))
                         {
-                            // Объект SmtpClient для отправки почты
-                            using (SmtpClient smtpClient = new SmtpClient("smtp.mail.ru", 2525))
+                            Attachment mailAttachment2 = new(WordEdit());
+                            mailAttachment2.Name = "Официальное письмо.docx";
+
+                            smtpClient.EnableSsl = true; // Включение SSL-протокола
+                            smtpClient.Credentials = new NetworkCredential(_txtEmailAddress.Text, _txtEmailPassword.SecurePassword); // Данные для почты отправителя
+
+                            // Адреса От, Кому и Ответить
+                            MailAddress from = new(_txtEmailAddress.Text);
+                            MailAddress to = new(client.Email, client.FullName);
+                            MailAddress replyTo = new(_txtEmailAddress.Text);
+
+                            MailMessage mailMessage = new(from, to); // Письмо (От, Кому)
+                            mailMessage.ReplyToList.Add(replyTo); // Ответить
+
+                            mailMessage.Attachments.Add(mailAttachment1);
+                            mailMessage.Attachments.Add(mailAttachment2);
+
+                            if (emailSubject != null || emailBody != null)
                             {
-                                Attachment mailAttachment2 = new(WordEdit());
-                                mailAttachment2.Name = "Официальное письмо.docx";
+                                mailMessage.Subject = emailSubject; // Тема письма
+                                mailMessage.SubjectEncoding = Encoding.UTF8;
 
-                                smtpClient.EnableSsl = true; // Включение SSL-протокола
-                                smtpClient.Credentials = new NetworkCredential("your_email_here", "your_password_here"); // Данные для почты отправителя
-
-                                // Адреса От, Кому и Ответить
-                                MailAddress from = new("your_email_here");
-                                MailAddress to = new(client.Email, client.FullName);
-                                MailAddress replyTo = new("your_email_here");
-
-                                MailMessage mailMessage = new(from, to); // Письмо (От, Кому)
-                                mailMessage.ReplyToList.Add(replyTo); // Ответить
-
-                                mailMessage.Attachments.Add(mailAttachment1);
-                                mailMessage.Attachments.Add(mailAttachment2);
-
-                                if (emailSubject != null || emailBody != null)
-                                {
-                                    mailMessage.Subject = emailSubject; // Тема письма
-                                    mailMessage.SubjectEncoding = Encoding.UTF8;
-
-                                    mailMessage.Body = emailBody; // Содержимое письма
-                                    mailMessage.BodyEncoding = Encoding.UTF8;
-                                    mailMessage.IsBodyHtml = false;
-                                }
-                                else return;
-                                await smtpClient.SendMailAsync(mailMessage);
-                            };
-                            _totalSend++;
-                            sendCount++;
-                        }
-                        catch (IOException ex)
-                        {
-                            invalidMessage += ex.Message + "\n";
-                        }
-                        catch (SmtpException ex)
-                        {
-                            invalidMessage += ex.Message + "\n";
-                        }
+                                mailMessage.Body = emailBody; // Содержимое письма
+                                mailMessage.BodyEncoding = Encoding.UTF8;
+                                mailMessage.IsBodyHtml = false;
+                            }
+                            else return;
+                            await smtpClient.SendMailAsync(mailMessage);
+                        };
+                        _totalSend++;
+                        sendCount++;
+                    }
+                    catch (IOException ex)
+                    {
+                        invalidMessage += ex.Message + "\n";
+                    }
+                    catch (SmtpException ex)
+                    {
+                        invalidMessage += ex.Message + "\n";
                     }
                 }
-                
-                mailAttachment1.Dispose();
-            });
+            }
+            mailAttachment1.Dispose();
+            
             Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
             config.AppSettings.Settings["totalSend"].Value = _totalSend.ToString();
             config.Save(ConfigurationSaveMode.Modified);
@@ -217,6 +276,15 @@ namespace EmailService
 
             if (invalidMessage != null) MessageBox.Show(invalidMessage);
             MessageBox.Show($"Было отправленно писем – {sendCount}\n");
+        }
+
+        /// <summary>
+        /// Метод для отображения кнопки отправить, если все файлы были выбраны
+        /// </summary>
+        private void IsAllSelected()
+        {
+            if (_dbChosen && _txtChosen && _presentationChosen && _wordChosen) SendButton.IsEnabled = true;
+            else SendButton.IsEnabled = false;
         }
 
         /// <summary>
@@ -228,7 +296,8 @@ namespace EmailService
         /// <exception cref="ApplicationException"></exception>
         private async void SendButtonClick(object sender, RoutedEventArgs e)
         {
-            await EmailSending();
+            if (CheckCredentials()) await EmailSendingAsync();
+            else MessageBox.Show("Ошибка с данными электронной почты");
         }
 
         /// <summary>
@@ -314,15 +383,6 @@ namespace EmailService
             }
 
             IsAllSelected();
-        }
-
-        /// <summary>
-        /// Метод для отображения кнопки отправить, если все файлы были выбраны
-        /// </summary>
-        private void IsAllSelected() 
-        {
-            if (_dbChosen && _txtChosen && _presentationChosen && _wordChosen) SendButton.IsEnabled = true;
-            else SendButton.IsEnabled = false;
         }
     }
 }

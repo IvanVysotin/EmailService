@@ -5,8 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:EmailService"
         mc:Ignorable="d"
-        Title="MainWindow" Height="300" Width="950"
-        >
+        Title="MainWindow" Height="400" Width="950">
 
     <Grid>
         <Grid.ColumnDefinitions>
@@ -21,20 +20,28 @@
             <Button Content="Выбрать базу данных" Click="SelectDBClick" Margin="0 0 0 5" />
             <Button Content="Выбрать текст письма" Click="SelectTxtClick" Margin="0 0 0 5" />
             <Button Content="Выбрать презентацию" Click="SelectPresentaionClick" Margin="0 0 0 5"/>
-            <Button Content="Выбрать официальное&#x0a;письмо" HorizontalContentAlignment="Center" Click="SelectLetterClick" />
+            <Button Content="Выбрать официальное письмо" HorizontalContentAlignment="Center" Click="SelectLetterClick" />
         </StackPanel>
-        
+
 
         <DataGrid x:Name="clientDataGrid" Grid.Column="1" AutoGenerateColumns="False">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Наименование компании" Binding="{Binding Company}" Width="160" />
-                <DataGridTextColumn Header="ФИО" Binding="{Binding FullName}" Width="150" />
-                <DataGridTextColumn Header="Должность" Binding="{Binding Position}" Width="150" />
-                <DataGridTextColumn Header="e-mail" Binding="{Binding Email}" Width="200" />
-                <DataGridTextColumn Header="Телефон" Binding="{Binding Phone}" Width="150" />
+                <DataGridTextColumn Header="Наименование компании" Binding="{Binding Company}" Width="Auto" />
+                <DataGridTextColumn Header="ФИО" Binding="{Binding FullName}" Width="Auto" />
+                <DataGridTextColumn Header="Должность" Binding="{Binding Position}" Width="Auto" />
+                <DataGridTextColumn Header="e-mail" Binding="{Binding Email}" Width="Auto" />
+                <DataGridTextColumn Header="Телефон" Binding="{Binding Phone}" Width="Auto" />
             </DataGrid.Columns>
         </DataGrid>
+        <StackPanel Grid.Column="0" VerticalAlignment="Top" Margin="10,251,10,0" Height="96" RenderTransformOrigin="0.488,0.504" >
+            <Label Content="Адрес электронной почты:" />
+            <TextBox x:Name="_txtEmailAddress" Width="200" Height="20" Margin="0 0 0 5" />
+            <Label Content="Пароль электронной почты:" Height="25" />
+            <PasswordBox x:Name="_txtEmailPassword" Width="200" Height="20" Margin="0 0 0 5" />
+        </StackPanel>
+
     </Grid>
+
 </Window>
 
 
