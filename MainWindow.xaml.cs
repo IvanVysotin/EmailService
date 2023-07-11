@@ -149,46 +149,40 @@ namespace EmailService
         /// Метод, который редактирует данные в документе Word согласно данным из excel
         /// </summary>
         /// <returns></returns>
-        public string WordEdit()
+        public string WordEdit(Client client)
         {
             string tempFilePath = System.IO.Path.GetTempFileName(); // Путь к временному файлу
             File.Copy(_wordPath, tempFilePath, true); // Копирование драфта письма во временный файл
             Word.Application wordApp = new Word.Application();
             try
             {
-                foreach (Client client in clientDataGrid.ItemsSource)
+                Word.Document doc = wordApp.Documents.Open(tempFilePath);
+                // Замены символов
+                doc.Content.Find.Execute("...", ReplaceWith: client.FullName.ToString(), Replace: Word.WdReplace.wdReplaceAll);
+                doc.Content.Find.Execute("дд.мм.гггг", ReplaceWith: DateTime.Now.ToString("dd.MM.yyyy"), Replace: Word.WdReplace.wdReplaceAll);
+                doc.Content.Find.Execute(" *", ReplaceWith: _totalSend, Replace: Word.WdReplace.wdReplaceAll);
+
+                Word.Table table = doc.Tables[2]; // Вторая таблица в документе
+                Word.Cell cell = table.Cell(1, 2); //Вторая ячейка в первой строке
+                cell.Range.Text = client.Position + " " + client.Company + " ";
+                string[] nameParts = client.FullName.Split(' ');
+                if (nameParts.Length >= 2)
                 {
-                    if (client.FullName != null && client.Email != null)
+                    // Формирование Фамилии и инициалов
+                    string lastName = nameParts[0];
+                    string initials = "";
+                    for (int i = 1; i < nameParts.Length; i++)
                     {
-                        Word.Document doc = wordApp.Documents.Open(tempFilePath);
-                        // Замены символов
-                        doc.Content.Find.Execute("...", ReplaceWith: client.FullName.ToString(), Replace: Word.WdReplace.wdReplaceAll);
-                        doc.Content.Find.Execute("дд.мм.гггг", ReplaceWith: DateTime.Now.ToString("dd.MM.yyyy"), Replace: Word.WdReplace.wdReplaceAll);
-                        doc.Content.Find.Execute(" *", ReplaceWith: _totalSend, Replace: Word.WdReplace.wdReplaceAll);
-
-                        Word.Table table = doc.Tables[2]; // Вторая таблица в документе
-                        Word.Cell cell = table.Cell(1, 2); //Вторая ячейка в первой строке
-                        cell.Range.Text = client.Position + " " + client.Company + " ";
-                        string[] nameParts = client.FullName.Split(' ');
-                        if (nameParts.Length >= 2)
-                        {
-                            // Формирование Фамилии и инициалов
-                            string lastName = nameParts[0];
-                            string initials = "";
-                            for (int i = 1; i < nameParts.Length; i++)
-                            {
-                                initials += nameParts[i][0] + ".";
-                            }
-
-                            // Запись Фамилии и инициалов в ячейку
-                            cell.Range.Text += lastName + " " + initials;
-                        }
-                        else cell.Range.Text += client.FullName;
-
-                        doc.Save();
-                        doc.Close();
+                        initials += nameParts[i][0] + ".";
                     }
+
+                    // Запись Фамилии и инициалов в ячейку
+                    cell.Range.Text += lastName + " " + initials;
                 }
+                else cell.Range.Text += client.FullName;
+
+                doc.Save();
+                doc.Close();
             }
             finally
             {
@@ -225,7 +219,7 @@ namespace EmailService
                         // Объект SmtpClient для отправки почты
                         using (System.Net.Mail.SmtpClient smtpClient = new System.Net.Mail.SmtpClient(_smtpServer, _smtpPort))
                         {
-                            Attachment mailAttachment2 = new(WordEdit());
+                            Attachment mailAttachment2 = new(WordEdit(client));
                             mailAttachment2.Name = "Официальное письмо.docx";
 
                             smtpClient.EnableSsl = true; // Включение SSL-протокола
