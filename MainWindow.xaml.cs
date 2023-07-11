@@ -39,6 +39,7 @@ namespace EmailService
         private bool _txtChosen = false;
         private bool _presentationChosen = false;
         private bool _wordChosen = false;
+        private bool _credentialCheckResult = false;
         private string _xlsxPath;
         private string _txtPath;
         private string _presentationPath;
@@ -92,7 +93,6 @@ namespace EmailService
         /// <returns></returns>
         private bool CheckCredentials()
         {
-            //string[] emailAddress = _txtEmailAddress.Text.Split('@');
             if (_txtEmailAddress.Text.Length <= 7 || !_txtEmailAddress.Text.Contains('@') || _txtEmailPassword.SecurePassword.ToString() == null)
             {
                 return false;
@@ -149,7 +149,7 @@ namespace EmailService
         /// Метод, который редактирует данные в документе Word согласно данным из excel
         /// </summary>
         /// <returns></returns>
-        public string WordEdit(Client client)
+        public async Task<string> WordEditAsync(Client client)
         {
             string tempFilePath = System.IO.Path.GetTempFileName(); // Путь к временному файлу
             File.Copy(_wordPath, tempFilePath, true); // Копирование драфта письма во временный файл
@@ -158,9 +158,12 @@ namespace EmailService
             {
                 Word.Document doc = wordApp.Documents.Open(tempFilePath);
                 // Замены символов
-                doc.Content.Find.Execute("...", ReplaceWith: client.FullName.ToString(), Replace: Word.WdReplace.wdReplaceAll);
-                doc.Content.Find.Execute("дд.мм.гггг", ReplaceWith: DateTime.Now.ToString("dd.MM.yyyy"), Replace: Word.WdReplace.wdReplaceAll);
-                doc.Content.Find.Execute(" *", ReplaceWith: _totalSend, Replace: Word.WdReplace.wdReplaceAll);
+                await Task.Run(() => 
+                {
+                    doc.Content.Find.Execute("...", ReplaceWith: client.FullName.ToString(), Replace: Word.WdReplace.wdReplaceAll);
+                    doc.Content.Find.Execute("дд.мм.гггг", ReplaceWith: DateTime.Now.ToString("dd.MM.yyyy"), Replace: Word.WdReplace.wdReplaceAll);
+                    doc.Content.Find.Execute(" *", ReplaceWith: _totalSend, Replace: Word.WdReplace.wdReplaceAll);
+                });
 
                 Word.Table table = doc.Tables[2]; // Вторая таблица в документе
                 Word.Cell cell = table.Cell(1, 2); //Вторая ячейка в первой строке
@@ -181,7 +184,7 @@ namespace EmailService
                 }
                 else cell.Range.Text += client.FullName;
 
-                doc.Save();
+                await Task.Run(() => doc.Save());
                 doc.Close();
             }
             finally
@@ -219,17 +222,22 @@ namespace EmailService
                         // Объект SmtpClient для отправки почты
                         using (System.Net.Mail.SmtpClient smtpClient = new System.Net.Mail.SmtpClient(_smtpServer, _smtpPort))
                         {
-                            Attachment mailAttachment2 = new(WordEdit(client));
+                            string attachmentPath = await WordEditAsync(client);
+                            Attachment mailAttachment2 = new(attachmentPath);
                             mailAttachment2.Name = "Официальное письмо.docx";
 
                             smtpClient.EnableSsl = true; // Включение SSL-протокола
-                            smtpClient.Credentials = new NetworkCredential(_txtEmailAddress.Text, _txtEmailPassword.SecurePassword); // Данные для почты отправителя
-
-                            // Адреса От, Кому и Ответить
-                            MailAddress from = new(_txtEmailAddress.Text);
-                            MailAddress to = new(client.Email, client.FullName);
-                            MailAddress replyTo = new(_txtEmailAddress.Text);
-
+                            MailAddress from = null;
+                            MailAddress to = null;
+                            MailAddress replyTo = null;
+                            Dispatcher.Invoke(() =>
+                            {
+                                smtpClient.Credentials = new NetworkCredential(_txtEmailAddress.Text, _txtEmailPassword.SecurePassword); // Данные для почты отправителя
+                                // Адреса От, Кому и Ответить
+                                from = new(_txtEmailAddress.Text);
+                                to = new(client.Email, client.FullName);
+                                replyTo = new(_txtEmailAddress.Text);
+                            }); 
                             MailMessage mailMessage = new(from, to); // Письмо (От, Кому)
                             mailMessage.ReplyToList.Add(replyTo); // Ответить
 
@@ -288,9 +296,10 @@ namespace EmailService
         /// <param name="sender"></param>
         /// <param name="e"></param>
         /// <exception cref="ApplicationException"></exception>
-        private async void SendButtonClick(object sender, RoutedEventArgs e)
+        private async void SendButtonClickAsync(object sender, RoutedEventArgs e)
         {
-            if (CheckCredentials()) await EmailSendingAsync();
+            //bool _credentialCheckResult = CheckCredentials().Result;
+            if (CheckCredentials()) await Task.Run(() => EmailSendingAsync());
             else MessageBox.Show("Ошибка с данными электронной почты");
         }
 

@@ -16,7 +16,7 @@
         </Grid.ColumnDefinitions>
 
         <StackPanel Grid.Column="0" VerticalAlignment="Top" Margin="10">
-            <Button Name ="SendButton" Content="Отправить" Click="SendButtonClick" Margin="10" Width="85" IsEnabled="False" />
+            <Button Name ="SendButton" Content="Отправить" Click="SendButtonClickAsync" Margin="10" Width="85" IsEnabled="False" />
             <Button Content="Выбрать базу данных" Click="SelectDBClick" Margin="0 0 0 5" />
             <Button Content="Выбрать текст письма" Click="SelectTxtClick" Margin="0 0 0 5" />
             <Button Content="Выбрать презентацию" Click="SelectPresentaionClick" Margin="0 0 0 5"/>
