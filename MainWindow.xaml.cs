@@ -160,7 +160,7 @@ namespace EmailService
                 // Замены символов
                 await Task.Run(() => 
                 {
-                    doc.Content.Find.Execute("...", ReplaceWith: client.FullName.ToString(), Replace: Word.WdReplace.wdReplaceAll);
+                    doc.Content.Find.Execute("…", ReplaceWith: client.FullName.ToString(), Replace: Word.WdReplace.wdReplaceAll);
                     doc.Content.Find.Execute("дд.мм.гггг", ReplaceWith: DateTime.Now.ToString("dd.MM.yyyy"), Replace: Word.WdReplace.wdReplaceAll);
                     doc.Content.Find.Execute(" *", ReplaceWith: _totalSend, Replace: Word.WdReplace.wdReplaceAll);
                 });
@@ -214,7 +214,7 @@ namespace EmailService
                 {
                     // Запись в переменную для тела письма
                     emailBody = string.Join(Environment.NewLine,
-                        File.ReadLines(_txtPath).Skip(2)).Replace("...", client.FullName);
+                        File.ReadLines(_txtPath).Skip(2)).Replace("...", client.FullName).Replace("…", client.FullName);
 
                     if (emailSubject == null || emailBody == null) throw new IOException("Ошибка с файлом содержимого письма");
                     try
